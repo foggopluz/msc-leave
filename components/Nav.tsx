@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { canApprove, canManageEmployees, canImportEmployees, canAccessSettings, canAccessAdmin } from '@/lib/permissions'
-import { useDemoUser, DEMO_USERS } from '@/lib/demo-user'
+import { useDemoUser } from '@/lib/demo-user'
 import { ROLE_LABELS } from '@/lib/types'
 
 interface NavProps {
@@ -26,9 +26,9 @@ const navLinks = (role: string) => {
 
 export default function Nav({ unreadCount = 0 }: NavProps) {
   const pathname = usePathname()
-  const { user, setUser, all } = useDemoUser()
+  const { user, signOut } = useDemoUser()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [switcherOpen, setSwitcherOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const links = navLinks(user.role)
   const isAdmin = canAccessAdmin(user.role as never)
 
@@ -57,7 +57,6 @@ export default function Nav({ unreadCount = 0 }: NavProps) {
                 {link.label}
               </Link>
             ))}
-            {/* Admin Zone: only visible to admin role */}
             {isAdmin && (
               <Link
                 href="/admin"
@@ -90,10 +89,10 @@ export default function Nav({ unreadCount = 0 }: NavProps) {
               )}
             </Link>
 
-            {/* User switcher (demo mode) */}
+            {/* Profile menu */}
             <div className="hidden md:block relative">
               <button
-                onClick={() => setSwitcherOpen(o => !o)}
+                onClick={() => setProfileOpen(o => !o)}
                 className="flex items-center gap-2 pl-3 border-l border-gray-100 hover:opacity-80 transition-opacity"
               >
                 <div className={`w-7 h-7 rounded-full text-[11px] font-semibold flex items-center justify-center ${
@@ -112,39 +111,24 @@ export default function Nav({ unreadCount = 0 }: NavProps) {
                 </svg>
               </button>
 
-              {switcherOpen && (
+              {profileOpen && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setSwitcherOpen(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl border border-gray-100 shadow-lg z-20 overflow-hidden">
-                    <div className="px-3 py-2 border-b border-gray-100">
-                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Demo / Switch User</p>
+                  <div className="fixed inset-0 z-10" onClick={() => setProfileOpen(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl border border-gray-100 shadow-lg z-20 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <p className="text-[13px] font-semibold text-gray-900 leading-none">{user.name}</p>
+                      <p className="text-[12px] text-gray-400 mt-0.5">{user.email}</p>
                     </div>
-                    {all.map(u => (
-                      <button
-                        key={u.id}
-                        onClick={() => { setUser(u); setSwitcherOpen(false) }}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors ${
-                          u.id === user.id ? 'bg-blue-50' : ''
-                        }`}
-                      >
-                        <div className={`w-7 h-7 rounded-full text-[11px] font-semibold flex items-center justify-center flex-shrink-0 ${
-                          u.id === user.id ? 'bg-blue-600 text-white' : u.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-gray-200 text-gray-600'
-                        }`}>
-                          {u.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-[13px] font-medium text-gray-900 leading-none">{u.name}</p>
-                          <p className={`text-[11px] mt-0.5 ${u.role === 'admin' ? 'text-red-500' : 'text-gray-400'}`}>
-                            {ROLE_LABELS[u.role]}
-                          </p>
-                        </div>
-                        {u.id === user.id && (
-                          <svg className="w-4 h-4 text-blue-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                    ))}
+                    <button
+                      onClick={() => { setProfileOpen(false); signOut() }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-left text-[13px] text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Sign out
+                    </button>
                   </div>
                 </>
               )}
@@ -191,28 +175,21 @@ export default function Nav({ unreadCount = 0 }: NavProps) {
               Admin Zone
             </Link>
           )}
-          {/* Mobile user switcher */}
           <div className="pt-2 border-t border-gray-100">
-            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide px-3 pb-1">Switch User</p>
-            {all.map(u => (
-              <button
-                key={u.id}
-                onClick={() => { setUser(u); setMenuOpen(false) }}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left ${
-                  u.id === user.id ? 'bg-blue-50' : 'hover:bg-gray-50'
-                }`}
-              >
-                <div className={`w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center ${
-                  u.id === user.id ? 'bg-blue-600 text-white' : u.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-gray-200 text-gray-600'
-                }`}>
-                  {u.name.charAt(0)}
-                </div>
-                <span className="text-[13px] text-gray-700">{u.name}</span>
-                <span className={`text-[11px] ${u.role === 'admin' ? 'text-red-500' : 'text-gray-400'}`}>
-                  ({ROLE_LABELS[u.role]})
-                </span>
-              </button>
-            ))}
+            <div className="px-3 py-2">
+              <p className="text-[13px] font-semibold text-gray-900">{user.name}</p>
+              <p className="text-[12px] text-gray-400">{user.email}</p>
+            </div>
+            <button
+              onClick={() => { setMenuOpen(false); signOut() }}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-red-600 hover:bg-red-50"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign out
+            </button>
           </div>
         </div>
       )}

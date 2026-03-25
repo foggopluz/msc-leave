@@ -1,55 +1,73 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from './supabase'
 import { Role } from './types'
 
 export interface DemoUser {
   id: string
   name: string
+  email: string
   role: Role
   department_id: string | null
 }
 
 export const DEMO_USERS: DemoUser[] = [
-  { id: 'u1', name: 'Alice Mwangi',  role: 'employee', department_id: 'd1' },
-  { id: 'u2', name: 'Bob Kimani',    role: 'manager',  department_id: 'd1' },
-  { id: 'u3', name: 'Carol Njeri',   role: 'hr',       department_id: 'd2' },
-  { id: 'u4', name: 'David Osei',    role: 'manager',  department_id: 'd3' },
-  { id: 'u5', name: 'Eve Banda',     role: 'gm',       department_id: null },
-  { id: 'u6', name: 'Frank Mutiso',  role: 'admin',    department_id: null },
+  { id: 'u1', name: 'Alice Mwangi',  email: 'alice@naenda.co.tz',  role: 'employee', department_id: 'd1' },
+  { id: 'u2', name: 'Bob Kimani',    email: 'bob@naenda.co.tz',    role: 'manager',  department_id: 'd1' },
+  { id: 'u3', name: 'Carol Njeri',   email: 'carol@naenda.co.tz',  role: 'hr',       department_id: 'd2' },
+  { id: 'u4', name: 'David Osei',    email: 'david@naenda.co.tz',  role: 'manager',  department_id: 'd3' },
+  { id: 'u5', name: 'Eve Banda',     email: 'eve@naenda.co.tz',    role: 'gm',       department_id: null },
+  { id: 'u6', name: 'Frank Mutiso',  email: 'frank@naenda.co.tz',  role: 'admin',    department_id: null },
 ]
 
-interface DemoUserCtx {
+interface UserCtx {
   user: DemoUser
-  setUser: (u: DemoUser) => void
-  all: DemoUser[]
+  signOut: () => Promise<void>
 }
 
-const Ctx = createContext<DemoUserCtx>({
+const Ctx = createContext<UserCtx>({
   user: DEMO_USERS[0],
-  setUser: () => {},
-  all: DEMO_USERS,
+  signOut: async () => {},
 })
 
 export function DemoUserProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUserState] = useState<DemoUser>(DEMO_USERS[0])
+  const [user, setUser] = useState<DemoUser>(DEMO_USERS[0])
+  const router = useRouter()
 
   useEffect(() => {
-    try {
-      const id = localStorage.getItem('naenda_demo_user')
-      if (id) {
-        const found = DEMO_USERS.find(u => u.id === id)
-        if (found) setUserState(found)
-      }
-    } catch {}
-  }, [])
+    const supabase = createClient()
 
-  const setUser = (u: DemoUser) => {
-    setUserState(u)
-    try { localStorage.setItem('naenda_demo_user', u.id) } catch {}
+    // Resolve the active user from the current session
+    const resolve = (email: string | null | undefined) => {
+      if (!email) return
+      const matched = DEMO_USERS.find(u => u.email === email)
+      if (matched) setUser(matched)
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      resolve(session?.user?.email)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.email) {
+        resolve(session.user.email)
+      } else {
+        router.replace('/login')
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
+
+  const signOut = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.replace('/login')
   }
 
-  return <Ctx.Provider value={{ user, setUser, all: DEMO_USERS }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ user, signOut }}>{children}</Ctx.Provider>
 }
 
 export function useDemoUser() {

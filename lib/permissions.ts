@@ -14,7 +14,7 @@ export function canApprove(role: Role): boolean {
 }
 
 export function canManageEmployees(role: Role): boolean {
-  return ['hr', 'gm', 'admin'].includes(role)
+  return ['hr', 'admin'].includes(role)
 }
 
 export function canViewAllDepartments(role: Role): boolean {
@@ -22,7 +22,7 @@ export function canViewAllDepartments(role: Role): boolean {
 }
 
 export function canAccessSettings(role: Role): boolean {
-  return ['gm', 'admin'].includes(role)
+  return role === 'admin'
 }
 
 export function canAccessAdmin(role: Role): boolean {
@@ -30,11 +30,11 @@ export function canAccessAdmin(role: Role): boolean {
 }
 
 export function canOverrideLeaveBalance(role: Role): boolean {
-  return ['hr', 'gm', 'admin'].includes(role)
+  return ['hr', 'admin'].includes(role)
 }
 
 export function canImportEmployees(role: Role): boolean {
-  return ['hr', 'gm', 'admin'].includes(role)
+  return ['hr', 'admin'].includes(role)
 }
 
 export function getApprovalStageForRole(role: Role): ApprovalStage | null {
