@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
   // Upcoming leaves
   const in14Str = new Date(today.getTime() + 14 * 86400000).toISOString().split('T')[0]
   const { data: upcoming } = await db.from('leave_requests')
-    .select('*, user:users(*)')
+    .select('*, user:users!leave_requests_user_id_fkey(*)')
     .eq('status', 'approved')
     .gt('start_date', todayStr)
     .lte('start_date', in14Str)

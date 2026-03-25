@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const roleFilter = searchParams.get('role') as Role | null
   const activeFilter = searchParams.get('active')
 
-  let query = db.from('users').select('*, department:departments(*)')
+  let query = db.from('users').select('*, department:departments!users_department_id_fkey(*)')
   if (roleFilter) query = query.eq('role', roleFilter)
   if (activeFilter !== null) query = query.eq('is_active', activeFilter === 'true')
 

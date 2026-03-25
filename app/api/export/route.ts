@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  const { data: users } = await db.from('users').select('*, department:departments(name)').eq('is_active', true)
+  const { data: users } = await db.from('users').select('*, department:departments!users_department_id_fkey(name)').eq('is_active', true)
   const { data: balances } = await db.from('leave_balances').select('*')
 
   const header = ['Name', 'Email', 'Department', 'Role', ...LEAVE_HEADERS].join(',')

@@ -1,64 +1,21 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-
-const PUBLIC_ROUTES = ['/login', '/api/auth']
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow public routes
-  if (PUBLIC_ROUTES.some(p => pathname.startsWith(p))) {
-    return NextResponse.next()
-  }
-
-  // Skip middleware for static assets and Next.js internals
+  // Skip for static assets, Next.js internals, and all API routes
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
-    pathname.includes('.')
+    pathname.startsWith('/api/')
   ) {
     return NextResponse.next()
   }
 
-  const response = NextResponse.next({ request })
-
-  // No Supabase configured — allow all (demo mode)
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    return response
-  }
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set(name, value)
-            response.cookies.set(name, value, options)
-          })
-        },
-      },
-    }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // Not authenticated — redirect to login
-  if (!user && pathname !== '/login') {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
-  // Authenticated — don't show login page
-  if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
-
-  return response
+  // App uses demo user switcher (localStorage) — Supabase is data-only.
+  // All page routes are accessible without a session.
+  return NextResponse.next()
 }
 
 export const config = {

@@ -3,11 +3,11 @@ import { db } from '@/lib/db'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { data: req, error } = await db.from('leave_requests').select('*, user:users(*)').eq('id', id).single()
+  const { data: req, error } = await db.from('leave_requests').select('*, user:users!leave_requests_user_id_fkey(*)').eq('id', id).single()
   if (error || !req) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { data: logs } = await db.from('approval_logs')
-    .select('*, approver:users(*)').eq('leave_request_id', id)
+    .select('*, approver:users!approval_logs_approver_id_fkey(*)').eq('leave_request_id', id)
   return NextResponse.json({ ...req, approval_logs: logs ?? [] })
 }
 

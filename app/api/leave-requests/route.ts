@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const stage = searchParams.get('stage')
   const deptId = searchParams.get('department_id')
 
-  let query = db.from('leave_requests').select('*, user:users(*)').order('created_at', { ascending: false })
+  let query = db.from('leave_requests').select('*, user:users!leave_requests_user_id_fkey(*)').order('created_at', { ascending: false })
   if (userId) query = query.eq('user_id', userId)
   if (status) query = query.eq('status', status)
   if (stage) query = query.eq('current_stage', stage)

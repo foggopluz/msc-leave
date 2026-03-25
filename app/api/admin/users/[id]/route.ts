@@ -22,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
-  const { data: updated, error } = await db.from('users').update(patch).eq('id', id).select('*, department:departments(*)').single()
+  const { data: updated, error } = await db.from('users').update(patch).eq('id', id).select('*, department:departments!users_department_id_fkey(*)').single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   if (changed.length > 0) {
