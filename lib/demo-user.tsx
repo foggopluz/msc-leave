@@ -38,8 +38,10 @@ export function DemoUserProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
   useEffect(() => {
+    // Login page manages its own auth — no provider interference
+    if (pathname.startsWith('/login')) return
+
     const supabase = createClient()
-    const isLoginPage = pathname.startsWith('/login')
 
     const resolve = (email: string | null | undefined) => {
       if (!email) return
@@ -47,26 +49,24 @@ export function DemoUserProvider({ children }: { children: React.ReactNode }) {
       if (matched) setUser(matched)
     }
 
-    // Check session once on mount; redirect only if on a protected page
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
         resolve(session.user.email)
-      } else if (!isLoginPage) {
+      } else {
         router.replace('/login')
       }
     })
 
-    // Keep in sync across tabs; never redirect when already on login
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user?.email) {
         resolve(session.user.email)
-      } else if (event === 'SIGNED_OUT' && !isLoginPage) {
+      } else if (event === 'SIGNED_OUT') {
         router.replace('/login')
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [router, pathname])
+  }, [pathname]) // router is stable — omitting it prevents redundant re-runs
 
   const signOut = async () => {
     const supabase = createClient()
