@@ -50,18 +50,9 @@ export default function LoginPage() {
 
         {/* Centre content */}
         <div className="relative">
-          <blockquote className="text-white/90 text-[28px] font-light leading-snug tracking-tight mb-6">
-            Effortless leave management for modern teams.
+          <blockquote className="text-white/90 text-[28px] font-light leading-snug tracking-tight">
+            Leave and Accruals - MSC @ 2025
           </blockquote>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 text-[12px] font-semibold">
-              DS
-            </div>
-            <div>
-              <p className="text-white/80 text-[13px] font-medium">Daniel B. Shayo</p>
-              <p className="text-white/40 text-[12px]">Product Owner</p>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
@@ -159,7 +150,7 @@ export default function LoginPage() {
 
           {/* Footer */}
           <p className="mt-10 text-center text-[12px] text-gray-400">
-            Naenda &copy; {new Date().getFullYear()} Daniel B. Shayo. All rights reserved.
+            Naenda &copy; {new Date().getFullYear()} &middot; Daniel B. Shayo. All rights reserved.
           </p>
         </div>
       </div>
