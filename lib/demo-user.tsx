@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from './supabase'
 import { Role } from './types'
 
@@ -35,9 +35,11 @@ const Ctx = createContext<UserCtx>({
 export function DemoUserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<DemoUser>(DEMO_USERS[0])
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
     const supabase = createClient()
+    const isLoginPage = pathname.startsWith('/login')
 
     const resolve = (email: string | null | undefined) => {
       if (!email) return
@@ -45,29 +47,26 @@ export function DemoUserProvider({ children }: { children: React.ReactNode }) {
       if (matched) setUser(matched)
     }
 
-    const onLoginPage = () =>
-      typeof window !== 'undefined' && window.location.pathname.startsWith('/login')
-
-    // On mount: resolve user or redirect to login if on a protected page
+    // Check session once on mount; redirect only if on a protected page
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
         resolve(session.user.email)
-      } else if (!onLoginPage()) {
+      } else if (!isLoginPage) {
         router.replace('/login')
       }
     })
 
-    // Only redirect on explicit sign-out; initial null session handled above
+    // Keep in sync across tabs; never redirect when already on login
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user?.email) {
         resolve(session.user.email)
-      } else if (event === 'SIGNED_OUT') {
+      } else if (event === 'SIGNED_OUT' && !isLoginPage) {
         router.replace('/login')
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [router])
+  }, [router, pathname])
 
   const signOut = async () => {
     const supabase = createClient()
