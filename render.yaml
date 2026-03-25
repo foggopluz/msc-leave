@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: naenda
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        value: https://aapwjgzxanycrftghsbg.supabase.co
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhcHdqZ3p4YW55Y3JmdGdoc2JnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NDEwMTgsImV4cCI6MjA5MDAxNzAxOH0.p9Ul6jtfV8raibK6yuQdObp7DexJedSFc4OORoeyzeY
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
