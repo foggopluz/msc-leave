@@ -15,7 +15,7 @@ export interface User {
   department_id: string | null
   role: Role
   is_active: boolean
-  joining_date: string          // ISO date — required for accrual calculations
+  joining_date: string          // ISO date, required for accrual calculations
   created_at: string
   department?: Department
 }
@@ -35,8 +35,8 @@ export interface LeaveBalance {
   leave_type: LeaveType
   balance: number               // For work_cycle & annual: tracks days TAKEN (used to compute effective balance)
   last_reset_at: string | null
-  accrued?: number              // Computed field returned by API — total accrued per formula
-  effective?: number            // Computed field — accrued minus taken
+  accrued?: number              // Computed field returned by API: total accrued per formula
+  effective?: number            // Computed field: accrued minus taken
 }
 
 export interface LeaveRequest {
@@ -125,7 +125,7 @@ export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
 export const LEAVE_TYPE_DEFAULTS: Record<LeaveType, number> = {
   work_cycle: 0,
   public_holiday: 0,
-  annual: 0,       // Starts at 0 — accrued dynamically from joining date
+  annual: 0,       // Starts at 0, accrued dynamically from joining date
   sick_full: 63,
   sick_half: 63,
   compassionate: 7,

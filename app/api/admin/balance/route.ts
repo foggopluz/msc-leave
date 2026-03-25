@@ -3,7 +3,7 @@ import { users, leaveBalances, logAdminAction } from '@/lib/store'
 import { computeWorkCycleAccrued, computeAnnualLeaveAccrued } from '@/lib/accrual'
 import { LeaveType } from '@/lib/types'
 
-// PATCH /api/admin/balance — admin override of any user's leave balance
+// PATCH /api/admin/balance : admin override of any user's leave balance
 export async function PATCH(req: NextRequest) {
   const { admin_id, user_id, leave_type, new_balance } = await req.json()
 

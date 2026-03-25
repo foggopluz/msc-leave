@@ -92,7 +92,7 @@ export default function SettingsPage() {
   return (
     <>
       <Nav />
-      <PageWrapper title="Settings" subtitle="System configuration — General Manager only">
+      <PageWrapper title="Settings" subtitle="System configuration (General Manager only)">
         {/* Tabs */}
         <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
           {tabs.map(t => (

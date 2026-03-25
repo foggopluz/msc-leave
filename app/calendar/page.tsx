@@ -122,7 +122,7 @@ export default function CalendarPage() {
                     <div
                       key={r.id}
                       className="text-[10px] rounded px-1 py-0.5 bg-orange-100 text-orange-700 truncate mb-0.5"
-                      title={`${(r as LeaveRequest & { user?: { full_name: string } }).user?.full_name} — ${LEAVE_TYPE_LABELS[r.leave_type]}`}
+                      title={`${(r as LeaveRequest & { user?: { full_name: string } }).user?.full_name} - ${LEAVE_TYPE_LABELS[r.leave_type]}`}
                     >
                       {(r as LeaveRequest & { user?: { full_name: string } }).user?.full_name ?? 'Employee'}
                     </div>

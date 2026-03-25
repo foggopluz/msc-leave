@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auditLogs, users } from '@/lib/store'
 
-// GET /api/admin/audit — fetch audit log (admin only)
+// GET /api/admin/audit : fetch audit log (admin only)
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const adminId = searchParams.get('admin_id')

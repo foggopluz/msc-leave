@@ -74,7 +74,7 @@ export default function ApprovalsPage() {
       <Nav />
       <PageWrapper
         title="Approvals"
-        subtitle={`Acting as ${user.role.toUpperCase()} — ${stage ? `Approving at ${stage} stage` : 'No approval stage'}`}
+        subtitle={`Acting as ${user.role.toUpperCase()} - ${stage ? `Approving at ${stage} stage` : 'No approval stage'}`}
       >
         <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 w-fit">
           {(['pending', 'history'] as const).map(t => (

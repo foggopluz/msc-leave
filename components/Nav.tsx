@@ -57,7 +57,7 @@ export default function Nav({ unreadCount = 0 }: NavProps) {
                 {link.label}
               </Link>
             ))}
-            {/* Admin Zone — only visible to admin role */}
+            {/* Admin Zone: only visible to admin role */}
             {isAdmin && (
               <Link
                 href="/admin"
@@ -117,7 +117,7 @@ export default function Nav({ unreadCount = 0 }: NavProps) {
                   <div className="fixed inset-0 z-10" onClick={() => setSwitcherOpen(false)} />
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl border border-gray-100 shadow-lg z-20 overflow-hidden">
                     <div className="px-3 py-2 border-b border-gray-100">
-                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Demo — Switch User</p>
+                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Demo / Switch User</p>
                     </div>
                     {all.map(u => (
                       <button

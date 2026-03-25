@@ -150,7 +150,7 @@ export default function AdminPage() {
       <Nav />
       <PageWrapper
         title="Admin Zone"
-        subtitle="Full system authority — restricted to Admin only"
+        subtitle="Full system authority (restricted to Admin only)"
         action={
           tab === 'users' ? (
             <button
@@ -284,7 +284,7 @@ export default function AdminPage() {
             {editUser && (
               <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <form onSubmit={handleEdit} className="bg-white rounded-2xl border border-gray-100 p-6 w-full max-w-md space-y-3 shadow-xl">
-                  <h3 className="text-[14px] font-semibold text-gray-900">Edit User — {editUser.full_name}</h3>
+                  <h3 className="text-[14px] font-semibold text-gray-900">Edit User: {editUser.full_name}</h3>
                   <input
                     placeholder="Full name"
                     defaultValue={editUser.full_name}
@@ -412,10 +412,10 @@ export default function AdminPage() {
                             </span>
                           </td>
                           <td className="px-5 py-3.5 text-[13px] text-gray-700">
-                            {(u as User & { department?: { name: string } }).department?.name ?? '—'}
+                            {(u as User & { department?: { name: string } }).department?.name ?? 'None'}
                           </td>
                           <td className="px-5 py-3.5 text-[13px] text-gray-500">
-                            {u.joining_date ?? '—'}
+                            {u.joining_date ?? 'Not set'}
                           </td>
                           <td className="px-5 py-3.5">
                             <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${
@@ -496,8 +496,8 @@ export default function AdminPage() {
         {/* Security notice */}
         <div className="mt-6 bg-red-50 border border-red-100 rounded-2xl p-4">
           <p className="text-[12px] text-red-700">
-            <strong>Security:</strong> All actions in this zone are logged and audited. Privilege escalation is prevented —
-            admin accounts cannot modify other admin accounts. In production, enforce multi-factor authentication for Admin access.
+            <strong>Security:</strong> All actions in this zone are logged and audited. Privilege escalation is prevented.
+            Admin accounts cannot modify other admin accounts. In production, enforce multi-factor authentication for Admin access.
           </p>
         </div>
       </PageWrapper>

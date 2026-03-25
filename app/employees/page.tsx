@@ -192,7 +192,7 @@ export default function EmployeesPage() {
                       </td>
                       <td className="px-5 py-3.5 text-[13px] text-gray-500">{emp.email}</td>
                       <td className="px-5 py-3.5 text-[13px] text-gray-700">
-                        {(emp as User & { department?: Department }).department?.name ?? '—'}
+                        {(emp as User & { department?: Department }).department?.name ?? 'None'}
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700">

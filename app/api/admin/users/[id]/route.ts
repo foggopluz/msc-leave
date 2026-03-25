@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { users, departments, leaveBalances, logAdminAction } from '@/lib/store'
 
-// PATCH /api/admin/users/[id] — update user (admin only)
+// PATCH /api/admin/users/[id] : update user (admin only)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const body = await req.json()
@@ -42,7 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   })
 }
 
-// DELETE /api/admin/users/[id] — hard or soft delete (admin only)
+// DELETE /api/admin/users/[id] : hard or soft delete (admin only)
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { searchParams } = new URL(req.url)

@@ -3,7 +3,7 @@ import { users, departments, leaveBalances, auditLogs, logAdminAction } from '@/
 import { getInitialBalances } from '@/lib/accrual'
 import { User, Role } from '@/lib/types'
 
-// GET /api/admin/users — list all users (active + inactive), enriched
+// GET /api/admin/users : list all users (active + inactive), enriched
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search')?.toLowerCase()
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(enriched)
 }
 
-// POST /api/admin/users — create user (admin only)
+// POST /api/admin/users : create user (admin only)
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { admin_id, email, full_name, department_id, role, joining_date } = body

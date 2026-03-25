@@ -5,7 +5,7 @@ export const WORK_CYCLE_WEEKLY_RATE = 1.5
 export const LEAVE_DEFAULTS: Record<LeaveType, number> = {
   work_cycle: 0,
   public_holiday: 0,
-  annual: 0,        // Starts at 0 — accrued dynamically from joining date
+  annual: 0,        // Starts at 0, accrued dynamically from joining date
   sick_full: 63,
   sick_half: 63,
   compassionate: 7,

@@ -1,5 +1,5 @@
 /**
- * In-memory demo store — used when Supabase env vars are not set.
+ * In-memory demo store: used when Supabase env vars are not set.
  * Lets the app run fully without a database for local demos.
  */
 import {
