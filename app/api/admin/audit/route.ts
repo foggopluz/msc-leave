@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auditLogs, users } from '@/lib/store'
+import { db } from '@/lib/db'
 
-// GET /api/admin/audit : fetch audit log (admin only)
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const adminId = searchParams.get('admin_id')
   const limit = parseInt(searchParams.get('limit') ?? '50')
 
-  const admin = users.find(u => u.id === adminId && u.role === 'admin')
-  if (!admin) {
-    return NextResponse.json({ error: 'Unauthorized: admin access required' }, { status: 403 })
-  }
+  const { data: admin } = await db.from('users').select('id').eq('id', adminId).eq('role', 'admin').single()
+  if (!admin) return NextResponse.json({ error: 'Unauthorized: admin access required' }, { status: 403 })
 
-  const enriched = auditLogs.slice(0, limit).map(log => ({
-    ...log,
-    admin: users.find(u => u.id === log.admin_id),
-    target_user: log.target_user_id ? users.find(u => u.id === log.target_user_id) : null,
-  }))
-
-  return NextResponse.json(enriched)
+  const { data, error } = await db.from('audit_logs')
+    .select('*, admin:users!audit_logs_admin_id_fkey(*), target_user:users!audit_logs_target_user_id_fkey(*)')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data ?? [])
 }

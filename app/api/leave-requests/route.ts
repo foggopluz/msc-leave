@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { leaveRequests, leaveBalances, users, createLeaveRequest } from '@/lib/store'
+import { db } from '@/lib/db'
 import { LeaveType } from '@/lib/types'
 import { calculateLeaveDays } from '@/lib/accrual'
 
@@ -10,23 +10,22 @@ export async function GET(req: NextRequest) {
   const stage = searchParams.get('stage')
   const deptId = searchParams.get('department_id')
 
-  let filtered = [...leaveRequests]
-  if (userId) filtered = filtered.filter(r => r.user_id === userId)
-  if (status) filtered = filtered.filter(r => r.status === status)
-  if (stage) filtered = filtered.filter(r => r.current_stage === stage)
+  let query = db.from('leave_requests').select('*, user:users(*)').order('created_at', { ascending: false })
+  if (userId) query = query.eq('user_id', userId)
+  if (status) query = query.eq('status', status)
+  if (stage) query = query.eq('current_stage', stage)
+
+  const { data, error } = await query
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  let result = data ?? []
   if (deptId) {
-    const deptUserIds = new Set(users.filter(u => u.department_id === deptId).map(u => u.id))
-    filtered = filtered.filter(r => deptUserIds.has(r.user_id))
+    const { data: deptUsers } = await db.from('users').select('id').eq('department_id', deptId)
+    const ids = new Set((deptUsers ?? []).map(u => u.id))
+    result = result.filter(r => ids.has(r.user_id))
   }
 
-  const enriched = filtered
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .map(r => ({
-      ...r,
-      user: users.find(u => u.id === r.user_id),
-    }))
-
-  return NextResponse.json(enriched)
+  return NextResponse.json(result)
 }
 
 export async function POST(req: NextRequest) {
@@ -34,53 +33,70 @@ export async function POST(req: NextRequest) {
   const { user_id, leave_type, start_date, end_date, notes } = body
 
   if (!user_id || !leave_type || !start_date || !end_date) {
-    return NextResponse.json(
-      { error: 'user_id, leave_type, start_date, end_date are required' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'user_id, leave_type, start_date, end_date are required' }, { status: 400 })
   }
 
-  const user = users.find(u => u.id === user_id)
+  const { data: user } = await db.from('users').select('id').eq('id', user_id).single()
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
   const start = new Date(start_date)
   const end = new Date(end_date)
-  if (end < start) {
-    return NextResponse.json({ error: 'end_date must be after start_date' }, { status: 400 })
-  }
+  if (end < start) return NextResponse.json({ error: 'end_date must be after start_date' }, { status: 400 })
 
   const days_requested = calculateLeaveDays(start, end)
-  if (days_requested === 0) {
-    return NextResponse.json({ error: 'No working days in selected range' }, { status: 400 })
+  if (days_requested === 0) return NextResponse.json({ error: 'No working days in selected range' }, { status: 400 })
+
+  // Check balance for non-dynamic types
+  if (leave_type !== 'work_cycle' && leave_type !== 'annual') {
+    const { data: bal } = await db.from('leave_balances')
+      .select('balance').eq('user_id', user_id).eq('leave_type', leave_type).single()
+    if (bal && bal.balance < days_requested) {
+      return NextResponse.json(
+        { error: `Insufficient balance. Available: ${bal.balance} days, Requested: ${days_requested} days` },
+        { status: 422 }
+      )
+    }
   }
 
-  // Check balance (unless HR/GM override)
-  const bal = leaveBalances.find(b => b.user_id === user_id && b.leave_type === (leave_type as LeaveType))
-  if (bal && bal.balance < days_requested) {
-    return NextResponse.json(
-      { error: `Insufficient balance. Available: ${bal.balance} days, Requested: ${days_requested} days` },
-      { status: 422 }
-    )
-  }
-
-  // Check for overlapping pending/approved leave
-  const overlap = leaveRequests.find(r =>
-    r.user_id === user_id &&
-    ['pending', 'approved'].includes(r.status) &&
-    !(new Date(r.end_date) < start || new Date(r.start_date) > end)
-  )
-  if (overlap) {
+  // Check overlap
+  const { data: overlap } = await db.from('leave_requests')
+    .select('id')
+    .eq('user_id', user_id)
+    .in('status', ['pending', 'approved'])
+    .lte('start_date', end_date)
+    .gte('end_date', start_date)
+  if (overlap && overlap.length > 0) {
     return NextResponse.json({ error: 'Overlapping leave request exists' }, { status: 409 })
   }
 
-  const newRequest = createLeaveRequest({
+  const now = new Date().toISOString()
+  const newRequest = {
+    id: crypto.randomUUID(),
     user_id,
     leave_type,
     start_date,
     end_date,
     days_requested,
+    status: 'pending',
+    current_stage: 'manager',
     notes: notes ?? null,
+    created_at: now,
+    updated_at: now,
+  }
+
+  const { data, error } = await db.from('leave_requests').insert(newRequest).select().single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Create notification for submitter
+  await db.from('notifications').insert({
+    id: crypto.randomUUID(),
+    user_id,
+    type: 'submitted',
+    message: `Your ${leave_type.replace('_', ' ')} request for ${days_requested} day(s) has been submitted.`,
+    read: false,
+    related_id: data.id,
+    created_at: now,
   })
 
-  return NextResponse.json(newRequest, { status: 201 })
+  return NextResponse.json(data, { status: 201 })
 }

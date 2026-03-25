@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { departments, users } from '@/lib/store'
-import { Department } from '@/lib/types'
+import { db } from '@/lib/db'
 
 export async function GET() {
-  const enriched = departments.map(d => ({
+  const { data: depts, error } = await db.from('departments').select('*, approver:users!fk_dept_approver(*)')
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Add employee_count
+  const { data: users } = await db.from('users').select('id, department_id, is_active').eq('is_active', true)
+  const enriched = (depts ?? []).map(d => ({
     ...d,
-    approver: users.find(u => u.id === d.approver_id) ?? null,
-    employee_count: users.filter(u => u.department_id === d.id && u.is_active).length,
+    employee_count: (users ?? []).filter(u => u.department_id === d.id).length,
   }))
   return NextResponse.json(enriched)
 }
@@ -15,16 +18,11 @@ export async function POST(req: NextRequest) {
   const { name, approver_id } = await req.json()
   if (!name) return NextResponse.json({ error: 'name is required' }, { status: 400 })
 
-  if (departments.find(d => d.name.toLowerCase() === name.toLowerCase())) {
-    return NextResponse.json({ error: 'Department already exists' }, { status: 409 })
-  }
+  const { data: existing } = await db.from('departments').select('id').ilike('name', name).single()
+  if (existing) return NextResponse.json({ error: 'Department already exists' }, { status: 409 })
 
-  const dept: Department = {
-    id: `d-${Date.now()}`,
-    name,
-    approver_id: approver_id ?? null,
-    created_at: new Date().toISOString(),
-  }
-  departments.push(dept)
-  return NextResponse.json(dept, { status: 201 })
+  const dept = { id: crypto.randomUUID(), name, approver_id: approver_id ?? null, created_at: new Date().toISOString() }
+  const { data, error } = await db.from('departments').insert(dept).select().single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data, { status: 201 })
 }

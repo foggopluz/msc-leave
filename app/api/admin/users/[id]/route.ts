@@ -1,75 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { users, departments, leaveBalances, logAdminAction } from '@/lib/store'
+import { db } from '@/lib/db'
 
-// PATCH /api/admin/users/[id] : update user (admin only)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const body = await req.json()
   const { admin_id, ...updates } = body
 
-  const admin = users.find(u => u.id === admin_id && u.role === 'admin')
-  if (!admin) {
-    return NextResponse.json({ error: 'Unauthorized: admin access required' }, { status: 403 })
-  }
+  const { data: admin } = await db.from('users').select('id').eq('id', admin_id).eq('role', 'admin').single()
+  if (!admin) return NextResponse.json({ error: 'Unauthorized: admin access required' }, { status: 403 })
 
-  const user = users.find(u => u.id === id)
+  const { data: user } = await db.from('users').select('*').eq('id', id).single()
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
-  const allowed = ['full_name', 'email', 'department_id', 'role', 'is_active', 'joining_date'] as const
+  const allowed = ['full_name', 'email', 'department_id', 'role', 'is_active', 'joining_date']
+  const patch: Record<string, unknown> = {}
   const changed: string[] = []
-
   for (const key of allowed) {
     if (key in updates && updates[key] !== undefined) {
-      const prev = user[key]
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(user as any)[key] = updates[key]
-      if (prev !== updates[key]) changed.push(`${key}: ${prev} → ${updates[key]}`)
+      if ((user as any)[key] !== updates[key]) changed.push(`${key}: ${(user as any)[key]} -> ${updates[key]}`)
+      patch[key] = updates[key]
     }
   }
 
-  if (changed.length > 0) {
-    const action = updates.role ? 'assign_role'
-      : updates.is_active === false ? 'deactivate_user'
-      : updates.is_active === true ? 'activate_user'
-      : 'update_user'
+  const { data: updated, error } = await db.from('users').update(patch).eq('id', id).select('*, department:departments(*)').single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    logAdminAction(admin_id, action, id, changed.join(', '))
+  if (changed.length > 0) {
+    const action = updates.role ? 'assign_role' : updates.is_active === false ? 'deactivate_user' : updates.is_active === true ? 'activate_user' : 'update_user'
+    await db.from('audit_logs').insert({ id: crypto.randomUUID(), admin_id, action, target_user_id: id, details: changed.join(', '), created_at: new Date().toISOString() })
   }
 
-  return NextResponse.json({
-    ...user,
-    department: departments.find(d => d.id === user.department_id) ?? null,
-  })
+  return NextResponse.json(updated)
 }
 
-// DELETE /api/admin/users/[id] : hard or soft delete (admin only)
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { searchParams } = new URL(req.url)
   const adminId = searchParams.get('admin_id')
   const hard = searchParams.get('hard') === 'true'
 
-  const admin = users.find(u => u.id === adminId && u.role === 'admin')
-  if (!admin) {
-    return NextResponse.json({ error: 'Unauthorized: admin access required' }, { status: 403 })
-  }
+  const { data: admin } = await db.from('users').select('id').eq('id', adminId).eq('role', 'admin').single()
+  if (!admin) return NextResponse.json({ error: 'Unauthorized: admin access required' }, { status: 403 })
 
-  const idx = users.findIndex(u => u.id === id)
-  if (idx === -1) return NextResponse.json({ error: 'User not found' }, { status: 404 })
-
-  const target = users[idx]
-
-  // Prevent self-deletion
-  if (id === adminId) {
-    return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
-  }
+  const { data: target } = await db.from('users').select('*').eq('id', id).single()
+  if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  if (id === adminId) return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
 
   if (hard) {
-    users.splice(idx, 1)
-    logAdminAction(adminId, 'delete_user', id, `Hard deleted user ${target.full_name} (${target.email})`)
+    await db.from('users').delete().eq('id', id)
+    await db.from('audit_logs').insert({ id: crypto.randomUUID(), admin_id: adminId, action: 'delete_user', target_user_id: id, details: `Hard deleted user ${target.full_name} (${target.email})`, created_at: new Date().toISOString() })
   } else {
-    users[idx].is_active = false
-    logAdminAction(adminId, 'deactivate_user', id, `Deactivated user ${target.full_name} (${target.email})`)
+    await db.from('users').update({ is_active: false }).eq('id', id)
+    await db.from('audit_logs').insert({ id: crypto.randomUUID(), admin_id: adminId, action: 'deactivate_user', target_user_id: id, details: `Deactivated user ${target.full_name} (${target.email})`, created_at: new Date().toISOString() })
   }
 
   return NextResponse.json({ success: true })

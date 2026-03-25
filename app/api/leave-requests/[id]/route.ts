@@ -1,35 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { leaveRequests, users, approvalLogs } from '@/lib/store'
+import { db } from '@/lib/db'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const req = leaveRequests.find(r => r.id === id)
-  if (!req) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const { data: req, error } = await db.from('leave_requests').select('*, user:users(*)').eq('id', id).single()
+  if (error || !req) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  return NextResponse.json({
-    ...req,
-    user: users.find(u => u.id === req.user_id),
-    approval_logs: approvalLogs
-      .filter(l => l.leave_request_id === id)
-      .map(l => ({ ...l, approver: users.find(u => u.id === l.approver_id) })),
-  })
+  const { data: logs } = await db.from('approval_logs')
+    .select('*, approver:users(*)').eq('leave_request_id', id)
+  return NextResponse.json({ ...req, approval_logs: logs ?? [] })
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const leaveReq = leaveRequests.find(r => r.id === id)
+  const { data: leaveReq } = await db.from('leave_requests').select('status').eq('id', id).single()
   if (!leaveReq) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const body = await req.json()
-  // Only allow cancellation by employee
   if (body.status === 'cancelled') {
     if (leaveReq.status !== 'pending') {
       return NextResponse.json({ error: 'Only pending requests can be cancelled' }, { status: 400 })
     }
-    leaveReq.status = 'cancelled'
-    leaveReq.current_stage = null
-    leaveReq.updated_at = new Date().toISOString()
+    const { data, error } = await db.from('leave_requests')
+      .update({ status: 'cancelled', current_stage: null, updated_at: new Date().toISOString() })
+      .eq('id', id).select().single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(data)
   }
-
   return NextResponse.json(leaveReq)
 }

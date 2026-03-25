@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { users, departments, leaveRequests } from '@/lib/store'
+import { db } from '@/lib/db'
 import { DashboardStats } from '@/lib/types'
 import { canViewAllDepartments } from '@/lib/permissions'
 
@@ -9,89 +9,74 @@ export async function GET(req: NextRequest) {
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  const todayStr = today.toISOString().split('T')[0]
 
-  // Determine which users are visible based on the requesting user's role
-  const requestingUser = userId ? users.find(u => u.id === userId) : null
+  const { data: requestingUser } = userId
+    ? await db.from('users').select('role, department_id').eq('id', userId).single()
+    : { data: null }
+
   const role = requestingUser?.role ?? 'employee'
   const deptId = requestingUser?.department_id ?? null
 
-  let visibleUsers = users.filter(u => u.is_active)
+  let usersQuery = db.from('users').select('id, department_id').eq('is_active', true)
   if (!canViewAllDepartments(role)) {
-    // Manager: only their department
-    visibleUsers = deptId
-      ? visibleUsers.filter(u => u.department_id === deptId)
-      : visibleUsers.filter(u => u.id === userId)
+    if (deptId) usersQuery = usersQuery.eq('department_id', deptId)
+    else if (userId) usersQuery = usersQuery.eq('id', userId)
   }
 
-  const visibleUserIds = new Set(visibleUsers.map(u => u.id))
+  const { data: visibleUsers } = await usersQuery
+  const visibleUserIds = (visibleUsers ?? []).map(u => u.id)
 
-  // Employees on leave today (within visible scope)
-  const onLeaveIds = new Set(
-    leaveRequests
-      .filter(r => {
-        if (r.status !== 'approved') return false
-        if (!visibleUserIds.has(r.user_id)) return false
-        const start = new Date(r.start_date)
-        const end = new Date(r.end_date)
-        start.setHours(0, 0, 0, 0)
-        end.setHours(0, 0, 0, 0)
-        return today >= start && today <= end
-      })
-      .map(r => r.user_id)
-  )
+  // On leave today
+  const { data: onLeaveToday } = await db.from('leave_requests')
+    .select('user_id')
+    .eq('status', 'approved')
+    .lte('start_date', todayStr)
+    .gte('end_date', todayStr)
+    .in('user_id', visibleUserIds)
 
-  const total_employees = visibleUsers.length
-  const on_leave_today = onLeaveIds.size
-  const on_duty_today = total_employees - on_leave_today
+  const onLeaveSet = new Set((onLeaveToday ?? []).map(r => r.user_id))
 
-  // Pending approvals (only those relevant to this user's approval stage)
-  const pending_approvals = leaveRequests.filter(r => {
-    if (r.status !== 'pending') return false
-    if (role === 'manager') return r.current_stage === 'manager' && visibleUserIds.has(r.user_id)
+  // Pending approvals
+  let pendingQuery = db.from('leave_requests').select('id, current_stage, user_id').eq('status', 'pending')
+  const { data: pendingAll } = await pendingQuery
+  const pending_approvals = (pendingAll ?? []).filter(r => {
+    if (role === 'manager') return r.current_stage === 'manager' && visibleUserIds.includes(r.user_id)
     if (role === 'hr') return r.current_stage === 'hr'
     if (role === 'gm') return r.current_stage === 'gm'
     return false
   }).length
 
-  // Department summaries (only visible departments)
-  const visibleDepts = canViewAllDepartments(role)
-    ? departments
-    : deptId ? departments.filter(d => d.id === deptId) : []
+  // Departments
+  const { data: depts } = canViewAllDepartments(role)
+    ? await db.from('departments').select('id, name')
+    : deptId
+      ? await db.from('departments').select('id, name').eq('id', deptId)
+      : { data: [] }
 
-  const deptSummaries = visibleDepts.map(d => {
-    const deptUsers = visibleUsers.filter(u => u.department_id === d.id)
-    const deptOnLeave = deptUsers.filter(u => onLeaveIds.has(u.id)).length
-    return {
-      id: d.id,
-      name: d.name,
-      total: deptUsers.length,
-      on_leave: deptOnLeave,
-      on_duty: deptUsers.length - deptOnLeave,
-    }
+  const deptSummaries = (depts ?? []).map(d => {
+    const deptUsers = (visibleUsers ?? []).filter(u => u.department_id === d.id)
+    const deptOnLeave = deptUsers.filter(u => onLeaveSet.has(u.id)).length
+    return { id: d.id, name: d.name, total: deptUsers.length, on_leave: deptOnLeave, on_duty: deptUsers.length - deptOnLeave }
   })
 
-  // Upcoming leaves (next 14 days, within visible scope)
-  const in14Days = new Date(today)
-  in14Days.setDate(in14Days.getDate() + 14)
-
-  const upcoming = leaveRequests
-    .filter(r => {
-      if (r.status !== 'approved') return false
-      if (!visibleUserIds.has(r.user_id)) return false
-      const start = new Date(r.start_date)
-      start.setHours(0, 0, 0, 0)
-      return start > today && start <= in14Days
-    })
-    .slice(0, 10)
-    .map(r => ({ ...r, user: users.find(u => u.id === r.user_id) }))
+  // Upcoming leaves
+  const in14Str = new Date(today.getTime() + 14 * 86400000).toISOString().split('T')[0]
+  const { data: upcoming } = await db.from('leave_requests')
+    .select('*, user:users(*)')
+    .eq('status', 'approved')
+    .gt('start_date', todayStr)
+    .lte('start_date', in14Str)
+    .in('user_id', visibleUserIds)
+    .limit(10)
 
   const stats: DashboardStats = {
-    total_employees,
-    on_duty_today,
-    on_leave_today,
+    total_employees: visibleUserIds.length,
+    on_duty_today: visibleUserIds.length - onLeaveSet.size,
+    on_leave_today: onLeaveSet.size,
     pending_approvals,
     departments: deptSummaries,
-    upcoming_leaves: upcoming,
+    upcoming_leaves: upcoming ?? [],
   }
 
   return NextResponse.json(stats)

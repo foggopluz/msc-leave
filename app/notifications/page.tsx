@@ -5,6 +5,7 @@ import Nav from '@/components/Nav'
 import PageWrapper from '@/components/PageWrapper'
 import { Notification } from '@/lib/types'
 import { useDemoUser } from '@/lib/demo-user'
+import { createClient } from '@/lib/supabase'
 
 const TYPE_CONFIG: Record<Notification['type'], { icon: string; color: string; bg: string }> = {
   submitted: { icon: '↑', color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -36,6 +37,20 @@ export default function NotificationsPage() {
   }
 
   useEffect(() => { load() }, [user.id])
+
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel('notifications')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, () => { load() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [user.id])
 
   const markAllRead = async () => {
     await fetch('/api/notifications', {

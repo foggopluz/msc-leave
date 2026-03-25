@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
 import {
-  users, leaveBalances, leaveRequests, publicHolidays
-} from '@/lib/store'
-import {
-  LEAVE_DEFAULTS,
-  isOnLeaveOnDate,
-  shouldResetSickLeave,
-  shouldResetCompassionateLeave,
-  computeWorkCycleAccrued,
-  computeAnnualLeaveAccrued,
+  LEAVE_DEFAULTS, shouldResetSickLeave, shouldResetCompassionateLeave,
+  computeWorkCycleAccrued, computeAnnualLeaveAccrued, isOnLeaveOnDate,
 } from '@/lib/accrual'
 
 export async function POST(req: NextRequest) {
@@ -16,105 +10,45 @@ export async function POST(req: NextRequest) {
   const results: string[] = []
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  const todayStr = today.toISOString().split('T')[0]
 
-  // ── Work Cycle Accrual ──────────────────────────────────────────────────────
-  if (job === 'work_cycle_accrual') {
-    const activeUsers = users.filter(u => u.is_active)
-    if (activeUsers.length === 0) {
-      return NextResponse.json(
-        { error: 'work_cycle_accrual aborted: no active users found. Possible data issue.' },
-        { status: 400 }
-      )
-    }
+  if (job === 'work_cycle_accrual' || job === 'annual_leave_accrual') {
+    const { data: activeUsers } = await db.from('users').select('*').eq('is_active', true)
+    if (!activeUsers?.length) return NextResponse.json({ error: `${job} aborted: no active users found.` }, { status: 400 })
+
+    const { data: allLeave } = await db.from('leave_requests').select('user_id, leave_type, days_requested, status, start_date, end_date').eq('status', 'approved')
+    const leaveType = job === 'work_cycle_accrual' ? 'work_cycle' : 'annual'
 
     let updated = 0
     for (const user of activeUsers) {
       if (!user.joining_date) continue
-
-      const userLeaves = leaveRequests.filter(r => r.user_id === user.id)
-      const onLeaveToday = isOnLeaveOnDate(userLeaves, today)
-
       const joiningDate = new Date(user.joining_date)
-      // Effective today for accrual: if on leave, accrue up to yesterday
-      const accrualDate = onLeaveToday
-        ? new Date(today.getTime() - 86400000)
-        : today
-
-      const accrued = computeWorkCycleAccrued(joiningDate, accrualDate)
-
-      // Recalculate days taken from approved leave
-      const daysTaken = userLeaves
-        .filter(r => r.status === 'approved' && r.leave_type === 'work_cycle')
-        .reduce((sum, r) => sum + r.days_requested, 0)
-
-      const bal = leaveBalances.find(b => b.user_id === user.id && b.leave_type === 'work_cycle')
-      if (bal) {
-        // Sync stored days_taken (in case manual overrides happened)
-        bal.balance = daysTaken
-        updated++
-      }
-
+      const userLeave = (allLeave ?? []).filter(r => r.user_id === user.id)
+      const onLeaveToday = isOnLeaveOnDate(userLeave, today)
+      const accrualDate = onLeaveToday ? new Date(today.getTime() - 86400000) : today
+      const accrued = job === 'work_cycle_accrual'
+        ? computeWorkCycleAccrued(joiningDate, accrualDate)
+        : computeAnnualLeaveAccrued(joiningDate, today)
+      const daysTaken = userLeave.filter(r => r.leave_type === leaveType).reduce((s, r) => s + r.days_requested, 0)
+      await db.from('leave_balances').update({ balance: daysTaken }).eq('user_id', user.id).eq('leave_type', leaveType)
+      updated++
       results.push(`${user.full_name}: ${accrued} accrued, ${daysTaken} taken, effective ${Math.max(0, accrued - daysTaken).toFixed(2)} days`)
     }
-    results.unshift(`work_cycle_accrual: recalculated for ${updated} employees`)
+    results.unshift(`${job}: recalculated for ${updated} employees`)
   }
 
-  // ── Annual Leave Accrual ────────────────────────────────────────────────────
-  if (job === 'annual_leave_accrual') {
-    const activeUsers = users.filter(u => u.is_active)
-    if (activeUsers.length === 0) {
-      return NextResponse.json(
-        { error: 'annual_leave_accrual aborted: no active users found.' },
-        { status: 400 }
-      )
-    }
-
-    let updated = 0
-    for (const user of activeUsers) {
-      if (!user.joining_date) continue
-
-      const joiningDate = new Date(user.joining_date)
-      const accrued = computeAnnualLeaveAccrued(joiningDate, today)
-
-      const userLeaves = leaveRequests.filter(r => r.user_id === user.id)
-      const daysTaken = userLeaves
-        .filter(r => r.status === 'approved' && r.leave_type === 'annual')
-        .reduce((sum, r) => sum + r.days_requested, 0)
-
-      const bal = leaveBalances.find(b => b.user_id === user.id && b.leave_type === 'annual')
-      if (bal) {
-        bal.balance = daysTaken
-        updated++
-      }
-
-      results.push(`${user.full_name}: ${accrued} accrued, ${daysTaken} taken, effective ${Math.max(0, accrued - daysTaken).toFixed(2)} days`)
-    }
-    results.unshift(`annual_leave_accrual: recalculated for ${updated} employees`)
-  }
-
-  // ── Public Holiday Credit ───────────────────────────────────────────────────
   if (job === 'public_holiday_credit') {
-    const todayStr = today.toISOString().split('T')[0]
-    const holiday = publicHolidays.find(h => h.date === todayStr)
-
+    const { data: holiday } = await db.from('public_holidays').select('name').eq('date', todayStr).single()
     if (holiday) {
-      const activeUsers = users.filter(u => u.is_active)
-      if (activeUsers.length === 0) {
-        return NextResponse.json(
-          { error: 'public_holiday_credit aborted: no active users found. Possible data issue.' },
-          { status: 400 }
-        )
-      }
+      const { data: activeUsers } = await db.from('users').select('id').eq('is_active', true)
+      if (!activeUsers?.length) return NextResponse.json({ error: 'public_holiday_credit aborted: no active users.' }, { status: 400 })
+      const { data: onLeave } = await db.from('leave_requests').select('user_id').eq('status', 'approved').lte('start_date', todayStr).gte('end_date', todayStr)
+      const onLeaveIds = new Set((onLeave ?? []).map(r => r.user_id))
       let credited = 0
       for (const user of activeUsers) {
-        const userLeaves = leaveRequests.filter(r => r.user_id === user.id)
-        if (isOnLeaveOnDate(userLeaves, today)) continue
-
-        const bal = leaveBalances.find(b => b.user_id === user.id && b.leave_type === 'public_holiday')
-        if (bal) {
-          bal.balance += 1
-          credited++
-        }
+        if (onLeaveIds.has(user.id)) continue
+        const { data: bal } = await db.from('leave_balances').select('balance').eq('user_id', user.id).eq('leave_type', 'public_holiday').single()
+        if (bal) { await db.from('leave_balances').update({ balance: bal.balance + 1 }).eq('user_id', user.id).eq('leave_type', 'public_holiday'); credited++ }
       }
       results.push(`public_holiday_credit: "${holiday.name}" credited to ${credited} employees`)
     } else {
@@ -122,30 +56,24 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Reset Sick Leave ────────────────────────────────────────────────────────
   if (job === 'reset_sick_leave') {
+    const { data: bals } = await db.from('leave_balances').select('*').in('leave_type', ['sick_full', 'sick_half'])
     let reset = 0
-    for (const bal of leaveBalances.filter(
-      b => b.leave_type === 'sick_full' || b.leave_type === 'sick_half'
-    )) {
-      const lastReset = bal.last_reset_at ? new Date(bal.last_reset_at) : null
-      if (shouldResetSickLeave(lastReset)) {
-        bal.balance = LEAVE_DEFAULTS[bal.leave_type]
-        bal.last_reset_at = today.toISOString()
+    for (const bal of bals ?? []) {
+      if (shouldResetSickLeave(bal.last_reset_at ? new Date(bal.last_reset_at) : null)) {
+        await db.from('leave_balances').update({ balance: LEAVE_DEFAULTS[bal.leave_type], last_reset_at: today.toISOString() }).eq('id', bal.id)
         reset++
       }
     }
     results.push(`reset_sick_leave: reset ${reset} balances`)
   }
 
-  // ── Reset Compassionate Leave ───────────────────────────────────────────────
   if (job === 'reset_compassionate_leave') {
+    const { data: bals } = await db.from('leave_balances').select('*').eq('leave_type', 'compassionate')
     let reset = 0
-    for (const bal of leaveBalances.filter(b => b.leave_type === 'compassionate')) {
-      const lastReset = bal.last_reset_at ? new Date(bal.last_reset_at) : null
-      if (shouldResetCompassionateLeave(lastReset)) {
-        bal.balance = LEAVE_DEFAULTS.compassionate
-        bal.last_reset_at = today.toISOString()
+    for (const bal of bals ?? []) {
+      if (shouldResetCompassionateLeave(bal.last_reset_at ? new Date(bal.last_reset_at) : null)) {
+        await db.from('leave_balances').update({ balance: LEAVE_DEFAULTS.compassionate, last_reset_at: today.toISOString() }).eq('id', bal.id)
         reset++
       }
     }
@@ -153,11 +81,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (results.length === 0) {
-    return NextResponse.json(
-      { error: `Unknown job: ${job}. Valid jobs: work_cycle_accrual, annual_leave_accrual, public_holiday_credit, reset_sick_leave, reset_compassionate_leave` },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: `Unknown job: ${job}` }, { status: 400 })
   }
-
   return NextResponse.json({ success: true, results })
 }

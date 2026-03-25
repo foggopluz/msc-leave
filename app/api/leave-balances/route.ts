@@ -1,36 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { leaveBalances, users, leaveRequests } from '@/lib/store'
-import { computeEffectiveBalance, computeWorkCycleAccrued, computeAnnualLeaveAccrued } from '@/lib/accrual'
+import { db } from '@/lib/db'
+import { computeWorkCycleAccrued, computeAnnualLeaveAccrued } from '@/lib/accrual'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const userId = searchParams.get('user_id')
+  if (!userId) return NextResponse.json({ error: 'user_id is required' }, { status: 400 })
 
-  if (!userId) {
-    return NextResponse.json({ error: 'user_id is required' }, { status: 400 })
-  }
+  const { data: user } = await db.from('users').select('joining_date').eq('id', userId).single()
+  const { data: balances, error } = await db.from('leave_balances').select('*').eq('user_id', userId)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const user = users.find(u => u.id === userId)
   const today = new Date()
   const joiningDate = user?.joining_date ? new Date(user.joining_date) : null
 
-  const balances = leaveBalances.filter(b => b.user_id === userId)
+  // Get approved leave days taken for dynamic types
+  const { data: approvedLeave } = await db.from('leave_requests')
+    .select('leave_type, days_requested')
+    .eq('user_id', userId)
+    .eq('status', 'approved')
+    .in('leave_type', ['work_cycle', 'annual'])
 
-  // Enrich with dynamic accrual for work_cycle and annual
-  const enriched = balances.map(b => {
-    if ((b.leave_type === 'work_cycle' || b.leave_type === 'annual') && joiningDate) {
-      const accrued = b.leave_type === 'work_cycle'
-        ? computeWorkCycleAccrued(joiningDate, today)
-        : computeAnnualLeaveAccrued(joiningDate, today)
+  const workCycleTaken = (approvedLeave ?? []).filter(r => r.leave_type === 'work_cycle').reduce((s, r) => s + r.days_requested, 0)
+  const annualTaken = (approvedLeave ?? []).filter(r => r.leave_type === 'annual').reduce((s, r) => s + r.days_requested, 0)
 
-      // b.balance stores days TAKEN for these types
-      const daysTaken = leaveRequests
-        .filter(r => r.user_id === userId && r.status === 'approved' && r.leave_type === b.leave_type)
-        .reduce((sum, r) => sum + r.days_requested, 0)
-
-      const effective = Math.max(0, Math.round((accrued - daysTaken) * 100) / 100)
-
-      return { ...b, balance: effective, accrued, effective, days_taken: daysTaken }
+  const enriched = (balances ?? []).map(b => {
+    if (b.leave_type === 'work_cycle' && joiningDate) {
+      const accrued = computeWorkCycleAccrued(joiningDate, today)
+      const effective = Math.max(0, Math.round((accrued - workCycleTaken) * 100) / 100)
+      return { ...b, balance: effective, accrued, effective, days_taken: workCycleTaken }
+    }
+    if (b.leave_type === 'annual' && joiningDate) {
+      const accrued = computeAnnualLeaveAccrued(joiningDate, today)
+      const effective = Math.max(0, Math.round((accrued - annualTaken) * 100) / 100)
+      return { ...b, balance: effective, accrued, effective, days_taken: annualTaken }
     }
     return b
   })
@@ -40,39 +43,28 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const { user_id, leave_type, balance } = await req.json()
-
   if (!user_id || !leave_type || balance === undefined) {
-    return NextResponse.json(
-      { error: 'user_id, leave_type, and balance are required' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'user_id, leave_type, and balance are required' }, { status: 400 })
   }
 
-  const bal = leaveBalances.find(b => b.user_id === user_id && b.leave_type === leave_type)
-  if (!bal) return NextResponse.json({ error: 'Balance not found' }, { status: 404 })
+  let newStoredBalance = Math.max(0, balance)
 
-  // For dynamic types, store as days taken (0 means no days taken)
-  // Admin override: set days_taken so that effective = balance
   if (leave_type === 'work_cycle' || leave_type === 'annual') {
-    const user = users.find(u => u.id === user_id)
+    const { data: user } = await db.from('users').select('joining_date').eq('id', user_id).single()
     if (user?.joining_date) {
       const today = new Date()
       const joiningDate = new Date(user.joining_date)
       const accrued = leave_type === 'work_cycle'
         ? computeWorkCycleAccrued(joiningDate, today)
         : computeAnnualLeaveAccrued(joiningDate, today)
-      // Set days_taken = accrued - desired_balance
-      bal.balance = Math.max(0, Math.round((accrued - balance) * 100) / 100)
+      newStoredBalance = Math.max(0, Math.round((accrued - balance) * 100) / 100)
     }
-  } else {
-    bal.balance = Math.max(0, balance)
   }
 
-  // Return enriched balance
-  const user = users.find(u => u.id === user_id)
-  const today = new Date()
-  const joiningDate = user?.joining_date ? new Date(user.joining_date) : null
-  const effective = computeEffectiveBalance(leave_type as never, bal.balance, joiningDate, today)
-
-  return NextResponse.json({ ...bal, effective })
+  const { data, error } = await db.from('leave_balances')
+    .update({ balance: newStoredBalance })
+    .eq('user_id', user_id).eq('leave_type', leave_type)
+    .select().single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
 }
