@@ -4,6 +4,7 @@ import {
   LEAVE_DEFAULTS, shouldResetSickLeave, shouldResetCompassionateLeave,
   computeWorkCycleAccrued, computeAnnualLeaveAccrued, isOnLeaveOnDate,
 } from '@/lib/accrual'
+import { LeaveType } from '@/lib/types'
 
 export async function POST(req: NextRequest) {
   const { job } = await req.json()
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
     let reset = 0
     for (const bal of bals ?? []) {
       if (shouldResetSickLeave(bal.last_reset_at ? new Date(bal.last_reset_at) : null)) {
-        await db.from('leave_balances').update({ balance: LEAVE_DEFAULTS[bal.leave_type], last_reset_at: today.toISOString() }).eq('id', bal.id)
+        await db.from('leave_balances').update({ balance: LEAVE_DEFAULTS[bal.leave_type as LeaveType], last_reset_at: today.toISOString() }).eq('id', bal.id)
         reset++
       }
     }
