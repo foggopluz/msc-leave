@@ -39,21 +39,29 @@ export function DemoUserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createClient()
 
-    // Resolve the active user from the current session
     const resolve = (email: string | null | undefined) => {
       if (!email) return
       const matched = DEMO_USERS.find(u => u.email === email)
       if (matched) setUser(matched)
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      resolve(session?.user?.email)
-    })
+    const onLoginPage = () =>
+      typeof window !== 'undefined' && window.location.pathname.startsWith('/login')
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // On mount: resolve user or redirect to login if on a protected page
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
         resolve(session.user.email)
-      } else {
+      } else if (!onLoginPage()) {
+        router.replace('/login')
+      }
+    })
+
+    // Only redirect on explicit sign-out; initial null session handled above
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user?.email) {
+        resolve(session.user.email)
+      } else if (event === 'SIGNED_OUT') {
         router.replace('/login')
       }
     })
