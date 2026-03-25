@@ -6,21 +6,21 @@ import PageWrapper from '@/components/PageWrapper'
 import LeaveForm from '@/components/LeaveForm'
 import BalanceCard from '@/components/BalanceCard'
 import { LeaveBalance } from '@/lib/types'
-
-const DEMO_USER = { id: 'u1', name: 'Alice Mwangi', role: 'employee' as const }
+import { useDemoUser } from '@/lib/demo-user'
 
 export default function LeavePage() {
+  const { user } = useDemoUser()
   const [balances, setBalances] = useState<LeaveBalance[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadBalances = () => {
-    fetch(`/api/leave-balances?user_id=${DEMO_USER.id}`)
+    fetch(`/api/leave-balances?user_id=${user.id}`)
       .then(r => r.json())
       .then(data => { setBalances(data); setLoading(false) })
       .catch(() => setLoading(false))
   }
 
-  useEffect(() => { loadBalances() }, [])
+  useEffect(() => { loadBalances() }, [user.id])
 
   const handleSubmit = async (data: {
     user_id: string; leave_type: import('@/lib/types').LeaveType
@@ -35,15 +35,15 @@ export default function LeavePage() {
       const err = await res.json()
       throw new Error(err.error ?? 'Submission failed')
     }
-    loadBalances() // refresh balances after submission
+    loadBalances()
   }
 
   return (
     <>
-      <Nav userRole={DEMO_USER.role} userName={DEMO_USER.name} />
+      <Nav />
       <PageWrapper
         title="Apply for Leave"
-        subtitle="Submit a new leave request"
+        subtitle={`Submitting as ${user.name}`}
         action={
           <a
             href="/leave/history"
@@ -54,7 +54,6 @@ export default function LeavePage() {
         }
       >
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Form */}
           <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6">
             <h2 className="text-[14px] font-semibold text-gray-900 mb-4">New Request</h2>
             {loading ? (
@@ -65,14 +64,13 @@ export default function LeavePage() {
               </div>
             ) : (
               <LeaveForm
-                userId={DEMO_USER.id}
+                userId={user.id}
                 balances={balances}
                 onSubmit={handleSubmit}
               />
             )}
           </div>
 
-          {/* Balances */}
           <div>
             {loading ? (
               <div className="bg-white rounded-2xl border border-gray-100 p-5 h-48 animate-pulse" />

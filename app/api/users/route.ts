@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { email, full_name, department_id, role } = body
+  const { email, full_name, department_id, role, joining_date } = body
 
   if (!email || !full_name || !role) {
     return NextResponse.json({ error: 'email, full_name, and role are required' }, { status: 400 })
@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
     department_id: department_id ?? null,
     role,
     is_active: true,
+    joining_date: joining_date || new Date().toISOString().split('T')[0],
     created_at: new Date().toISOString(),
   }
 

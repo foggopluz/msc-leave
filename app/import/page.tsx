@@ -3,16 +3,17 @@
 import { useState } from 'react'
 import Nav from '@/components/Nav'
 import PageWrapper from '@/components/PageWrapper'
-
-const DEMO_USER = { id: 'u3', name: 'Carol Njeri', role: 'hr' as const }
+import { useDemoUser } from '@/lib/demo-user'
 
 const TEMPLATE_HEADERS = [
   'Name', 'Department', 'Role',
   'Work Cycle Balance', 'Public Holidays Balance',
-  'Annual Leave', 'Sick Leave (Full)', 'Sick Leave (Half)', 'Compassionate Leave'
+  'Annual Leave', 'Sick Leave (Full)', 'Sick Leave (Half)', 'Compassionate Leave',
+  'Joining Date'
 ]
 
 export default function ImportPage() {
+  useDemoUser() // ensure context is active
   const [csv, setCsv] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{ created: number; errors: string[] } | null>(null)
@@ -53,7 +54,7 @@ export default function ImportPage() {
 
   return (
     <>
-      <Nav userRole={DEMO_USER.role} userName={DEMO_USER.name} />
+      <Nav />
       <PageWrapper
         title="Import Employees"
         subtitle="Bulk import via CSV"

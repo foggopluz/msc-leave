@@ -6,25 +6,26 @@ import StatCard from '@/components/StatCard'
 import PageWrapper from '@/components/PageWrapper'
 import StatusBadge from '@/components/StatusBadge'
 import { DashboardStats, LEAVE_TYPE_LABELS } from '@/lib/types'
+import { useDemoUser } from '@/lib/demo-user'
 import Link from 'next/link'
 
-// Demo: use u2 (manager) as current user
-const DEMO_USER = { id: 'u2', name: 'Bob Kimani', role: 'manager' as const }
-
 export default function DashboardPage() {
+  const { user } = useDemoUser()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/dashboard')
+    setLoading(true)
+    const params = new URLSearchParams({ user_id: user.id })
+    fetch(`/api/dashboard?${params}`)
       .then(r => r.json())
       .then(data => { setStats(data); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
+  }, [user.id])
 
   return (
     <>
-      <Nav userRole={DEMO_USER.role} userName={DEMO_USER.name} />
+      <Nav />
       <PageWrapper
         title="Dashboard"
         subtitle="Leave management overview"
@@ -45,7 +46,6 @@ export default function DashboardPage() {
           </div>
         ) : stats ? (
           <>
-            {/* Stat cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <StatCard
                 label="Total Employees"
@@ -90,7 +90,6 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid lg:grid-cols-3 gap-6">
-              {/* Departments overview */}
               <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100">
                   <h2 className="text-[13px] font-semibold text-gray-900">Departments</h2>
@@ -116,7 +115,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Upcoming leaves */}
               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100">
                   <h2 className="text-[13px] font-semibold text-gray-900">Upcoming Leaves</h2>
@@ -143,13 +141,11 @@ export default function DashboardPage() {
         )}
       </PageWrapper>
 
-      {/* Footer */}
       <footer className="text-center py-6 text-[11px] text-gray-300">
-        MSC-Leaves © Daniel B Shayo
+        Naenda © Daniel B Shayo
       </footer>
     </>
   )
 }
 
-// Type alias needed for the template literal above
 type LeaveRequest = import('@/lib/types').LeaveRequest

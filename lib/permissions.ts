@@ -6,30 +6,35 @@ export const ROLE_HIERARCHY: Record<Role, number> = {
   manager: 2,
   hr: 3,
   gm: 4,
+  admin: 5,
 }
 
 export function canApprove(role: Role): boolean {
-  return ['manager', 'hr', 'gm'].includes(role)
+  return ['manager', 'hr', 'gm', 'admin'].includes(role)
 }
 
 export function canManageEmployees(role: Role): boolean {
-  return ['hr', 'gm'].includes(role)
+  return ['hr', 'gm', 'admin'].includes(role)
 }
 
 export function canViewAllDepartments(role: Role): boolean {
-  return ['hr', 'gm', 'viewer'].includes(role)
+  return ['hr', 'gm', 'viewer', 'admin'].includes(role)
 }
 
 export function canAccessSettings(role: Role): boolean {
-  return role === 'gm'
+  return ['gm', 'admin'].includes(role)
+}
+
+export function canAccessAdmin(role: Role): boolean {
+  return role === 'admin'
 }
 
 export function canOverrideLeaveBalance(role: Role): boolean {
-  return role === 'hr' || role === 'gm'
+  return ['hr', 'gm', 'admin'].includes(role)
 }
 
 export function canImportEmployees(role: Role): boolean {
-  return ['hr', 'gm'].includes(role)
+  return ['hr', 'gm', 'admin'].includes(role)
 }
 
 export function getApprovalStageForRole(role: Role): ApprovalStage | null {

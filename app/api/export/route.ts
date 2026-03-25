@@ -15,14 +15,14 @@ export async function GET(req: NextRequest) {
   const type = searchParams.get('type') ?? 'balances'
 
   if (type === 'template') {
-    const header = ['Name', 'Department', 'Role', ...LEAVE_HEADERS].join(',')
-    const example = ['John Doe', 'Engineering', 'employee', '0', '0', '28', '63', '63', '7'].join(',')
+    const header = ['Name', 'Department', 'Role', ...LEAVE_HEADERS, 'Joining Date'].join(',')
+    const example = ['John Doe', 'Engineering', 'employee', '0', '0', '28', '63', '63', '7', '2024-01-15'].join(',')
     const csv = [header, example].join('\n')
 
     return new NextResponse(csv, {
       headers: {
         'Content-Type': 'text/csv',
-        'Content-Disposition': 'attachment; filename="msc-leaves-import-template.csv"',
+        'Content-Disposition': 'attachment; filename="naenda-import-template.csv"',
       },
     })
   }
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
   return new NextResponse(csv, {
     headers: {
       'Content-Type': 'text/csv',
-      'Content-Disposition': 'attachment; filename="msc-leaves-balances.csv"',
+      'Content-Disposition': 'attachment; filename="naenda-balances.csv"',
     },
   })
 }

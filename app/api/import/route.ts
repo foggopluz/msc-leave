@@ -44,12 +44,12 @@ export async function POST(req: NextRequest) {
     }
 
     const role = role_raw.toLowerCase() as Role
-    if (!['employee', 'manager', 'hr', 'gm', 'viewer'].includes(role)) {
+    if (!['employee', 'manager', 'hr', 'gm', 'viewer', 'admin'].includes(role)) {
       errors.push(`Row ${i + 2}: Invalid role "${role_raw}"`)
       continue
     }
 
-    const email = `${full_name.toLowerCase().replace(/\s+/g, '.')}@msc.co.tz`
+    const email = `${full_name.toLowerCase().replace(/\s+/g, '.')}@naenda.co.tz`
     if (users.find(u => u.email === email)) {
       errors.push(`Row ${i + 2}: Employee "${full_name}" already exists`)
       continue
@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
       department_id: dept?.id ?? null,
       role,
       is_active: true,
+      joining_date: cols[9] || new Date().toISOString().split('T')[0], // col 9 = Joining Date (optional)
       created_at: new Date().toISOString(),
     }
     users.push(newUser)

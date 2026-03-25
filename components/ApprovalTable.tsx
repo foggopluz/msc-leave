@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { LeaveRequest, ApprovalStage, LEAVE_TYPE_LABELS } from '@/lib/types'
 import StatusBadge from './StatusBadge'
 
@@ -57,8 +57,8 @@ export default function ApprovalTable({
           </thead>
           <tbody>
             {pending.map(r => (
-              <>
-                <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+              <Fragment key={r.id}>
+                <tr className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                   <td className="px-5 py-3.5">
                     <div>
                       <p className="text-[13px] font-medium text-gray-900">{r.user?.full_name ?? r.user_id}</p>
@@ -120,7 +120,7 @@ export default function ApprovalTable({
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>

@@ -38,7 +38,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-[22px] font-semibold tracking-tight text-gray-900">MSC-Leaves</h1>
+          <h1 className="text-[22px] font-semibold tracking-tight text-gray-900">Naenda</h1>
           <p className="text-[13px] text-gray-500 mt-1">Sign in to your account</p>
         </div>
 
@@ -53,7 +53,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="you@msc.co.tz"
+                placeholder="you@naenda.co.tz"
                 required
                 autoComplete="email"
                 className="w-full px-3 py-2 rounded-xl border border-gray-200 text-[13px] text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
@@ -90,7 +90,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-[11px] text-gray-400 mt-6">
-          MSC-Leaves © Daniel B Shayo
+          Naenda © Daniel B Shayo
         </p>
       </div>
     </div>

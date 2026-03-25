@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react'
 import Nav from '@/components/Nav'
 import PageWrapper from '@/components/PageWrapper'
 import { LeaveRequest, PublicHoliday, LEAVE_TYPE_LABELS } from '@/lib/types'
-
-const DEMO_USER = { id: 'u2', name: 'Bob Kimani', role: 'manager' as const }
+import { useDemoUser } from '@/lib/demo-user'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const DAYS_SHORT = ['Su','Mo','Tu','We','Th','Fr','Sa']
@@ -19,6 +18,7 @@ function getFirstDayOfMonth(year: number, month: number) {
 }
 
 export default function CalendarPage() {
+  useDemoUser() // ensure context is active
   const today = new Date()
   const [viewYear, setViewYear] = useState(today.getFullYear())
   const [viewMonth, setViewMonth] = useState(today.getMonth())
@@ -56,7 +56,7 @@ export default function CalendarPage() {
 
   return (
     <>
-      <Nav userRole={DEMO_USER.role} userName={DEMO_USER.name} />
+      <Nav />
       <PageWrapper title="Leave Calendar" subtitle="Team schedule and public holidays">
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           {/* Month nav */}

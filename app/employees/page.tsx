@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react'
 import Nav from '@/components/Nav'
 import PageWrapper from '@/components/PageWrapper'
 import { User, Department, ROLE_LABELS } from '@/lib/types'
+import { useDemoUser } from '@/lib/demo-user'
 import Link from 'next/link'
 
-const DEMO_USER = { id: 'u3', name: 'Carol Njeri', role: 'hr' as const }
-
 export default function EmployeesPage() {
+  const { user: DEMO_USER } = useDemoUser()
   const [employees, setEmployees] = useState<User[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
@@ -69,7 +69,7 @@ export default function EmployeesPage() {
 
   return (
     <>
-      <Nav userRole={DEMO_USER.role} userName={DEMO_USER.name} />
+      <Nav />
       <PageWrapper
         title="Employees"
         subtitle={`${employees.length} active employee${employees.length !== 1 ? 's' : ''}`}

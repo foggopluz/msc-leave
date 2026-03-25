@@ -5,7 +5,7 @@ export const WORK_CYCLE_WEEKLY_RATE = 1.5
 export const LEAVE_DEFAULTS: Record<LeaveType, number> = {
   work_cycle: 0,
   public_holiday: 0,
-  annual: 28,
+  annual: 0,        // Starts at 0 — accrued dynamically from joining date
   sick_full: 63,
   sick_half: 63,
   compassionate: 7,
@@ -13,6 +13,69 @@ export const LEAVE_DEFAULTS: Record<LeaveType, number> = {
 
 export const SICK_LEAVE_RESET_YEARS = 3
 export const COMPASSIONATE_RESET_MONTHS = 12
+
+// ── Joining-date-based accrual formulas ─────────────────────────────────────
+
+/**
+ * Work Cycle Days accrued from joining date to today (inclusive).
+ * Formula: ((today - joiningDate + 1) / 7) * 1.5
+ * Returns the total accumulated days (floored to 2 decimal places).
+ */
+export function computeWorkCycleAccrued(joiningDate: Date, today: Date): number {
+  const msPerDay = 24 * 60 * 60 * 1000
+  const joining = new Date(joiningDate)
+  joining.setHours(0, 0, 0, 0)
+  const todayNorm = new Date(today)
+  todayNorm.setHours(0, 0, 0, 0)
+
+  const daysWorked = Math.max(0, Math.floor((todayNorm.getTime() - joining.getTime()) / msPerDay) + 1)
+  const accrued = (daysWorked / 7) * WORK_CYCLE_WEEKLY_RATE
+  return Math.round(accrued * 100) / 100
+}
+
+/**
+ * Annual Leave accrued from joining date to today (inclusive).
+ * Formula: 28 * (today - joiningDate + 1) / 365
+ * Returns total accumulated days (floored to 2 decimal places).
+ */
+export function computeAnnualLeaveAccrued(joiningDate: Date, today: Date): number {
+  const msPerDay = 24 * 60 * 60 * 1000
+  const joining = new Date(joiningDate)
+  joining.setHours(0, 0, 0, 0)
+  const todayNorm = new Date(today)
+  todayNorm.setHours(0, 0, 0, 0)
+
+  const daysWorked = Math.max(0, Math.floor((todayNorm.getTime() - joining.getTime()) / msPerDay) + 1)
+  const accrued = (28 * daysWorked) / 365
+  return Math.round(accrued * 100) / 100
+}
+
+/**
+ * Compute effective balance for dynamic leave types (work_cycle, annual).
+ * storedBalance = total days already TAKEN (deducted on approval).
+ * Returns max(0, accrued - taken).
+ */
+export function computeEffectiveBalance(
+  leaveType: LeaveType,
+  storedBalance: number,
+  joiningDate: Date | null,
+  today: Date
+): number {
+  if (leaveType === 'work_cycle') {
+    if (!joiningDate) return 0
+    const accrued = computeWorkCycleAccrued(joiningDate, today)
+    return Math.max(0, Math.round((accrued - storedBalance) * 100) / 100)
+  }
+  if (leaveType === 'annual') {
+    if (!joiningDate) return 0
+    const accrued = computeAnnualLeaveAccrued(joiningDate, today)
+    return Math.max(0, Math.round((accrued - storedBalance) * 100) / 100)
+  }
+  // For all other types, stored balance IS the effective balance
+  return storedBalance
+}
+
+// ── Existing helpers (unchanged) ─────────────────────────────────────────────
 
 /**
  * Calculate working days between two dates (Mon–Fri, inclusive).
@@ -73,6 +136,7 @@ export function shouldResetCompassionateLeave(lastResetAt: Date | null): boolean
 
 /**
  * Build initial leave balances for a newly created employee.
+ * work_cycle and annual start at 0 (tracked as days taken, accrued dynamically).
  */
 export function getInitialBalances(
   userId: string
@@ -89,7 +153,6 @@ export function getInitialBalances(
 
 /**
  * Parse a CSV date range and return working days count.
- * Useful for import validation.
  */
 export function parseDateRange(
   startStr: string,

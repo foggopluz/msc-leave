@@ -5,20 +5,20 @@ import Nav from '@/components/Nav'
 import PageWrapper from '@/components/PageWrapper'
 import StatusBadge from '@/components/StatusBadge'
 import { LeaveRequest, LEAVE_TYPE_LABELS } from '@/lib/types'
+import { useDemoUser } from '@/lib/demo-user'
 import Link from 'next/link'
 
-const DEMO_USER = { id: 'u1', name: 'Alice Mwangi', role: 'employee' as const }
-
 export default function LeaveHistoryPage() {
+  const { user } = useDemoUser()
   const [requests, setRequests] = useState<LeaveRequest[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`/api/leave-requests?user_id=${DEMO_USER.id}`)
+    fetch(`/api/leave-requests?user_id=${user.id}`)
       .then(r => r.json())
       .then(data => { setRequests(data); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
+  }, [user.id])
 
   const handleCancel = async (id: string) => {
     const res = await fetch(`/api/leave-requests/${id}`, {
@@ -33,10 +33,10 @@ export default function LeaveHistoryPage() {
 
   return (
     <>
-      <Nav userRole={DEMO_USER.role} userName={DEMO_USER.name} />
+      <Nav />
       <PageWrapper
         title="Leave History"
-        subtitle="All your leave requests"
+        subtitle={`All leave requests for ${user.name}`}
         action={
           <Link
             href="/leave"

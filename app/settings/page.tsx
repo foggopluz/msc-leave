@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react'
 import Nav from '@/components/Nav'
 import PageWrapper from '@/components/PageWrapper'
 import { Department, PublicHoliday, ROLE_LABELS, User } from '@/lib/types'
-
-const DEMO_USER = { id: 'u5', name: 'Eve Banda', role: 'gm' as const }
+import { useDemoUser } from '@/lib/demo-user'
 
 export default function SettingsPage() {
+  useDemoUser() // ensure context is active
   const [departments, setDepartments] = useState<Department[]>([])
   const [employees, setEmployees] = useState<User[]>([])
   const [holidays, setHolidays] = useState<PublicHoliday[]>([])
@@ -91,7 +91,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <Nav userRole={DEMO_USER.role} userName={DEMO_USER.name} />
+      <Nav />
       <PageWrapper title="Settings" subtitle="System configuration — General Manager only">
         {/* Tabs */}
         <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
@@ -224,7 +224,8 @@ export default function SettingsPage() {
                   onChange={e => setAccrualJob(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 text-[13px] bg-white focus:outline-none"
                 >
-                  <option value="work_cycle_accrual">Work Cycle Accrual (+1.5 days/week)</option>
+                  <option value="work_cycle_accrual">Work Cycle Accrual (joining-date formula)</option>
+                  <option value="annual_leave_accrual">Annual Leave Accrual (joining-date formula)</option>
                   <option value="public_holiday_credit">Public Holiday Credit (+1 day if holiday today)</option>
                   <option value="reset_sick_leave">Reset Sick Leave (3-year cycle)</option>
                   <option value="reset_compassionate_leave">Reset Compassionate Leave (12-month cycle)</option>

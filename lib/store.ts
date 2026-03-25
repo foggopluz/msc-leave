@@ -4,8 +4,8 @@
  */
 import {
   User, Department, LeaveRequest, LeaveBalance,
-  ApprovalLog, PublicHoliday, Notification,
-  LeaveStatus, ApprovalStage,
+  ApprovalLog, PublicHoliday, Notification, AuditLog,
+  LeaveStatus, ApprovalStage, AdminAction,
 } from './types'
 import { getInitialBalances } from './accrual'
 import { nextStage } from './permissions'
@@ -19,11 +19,12 @@ export const departments: Department[] = [
 ]
 
 export const users: User[] = [
-  { id: 'u1', email: 'alice@msc.co.tz', full_name: 'Alice Mwangi', department_id: 'd1', role: 'employee', is_active: true, created_at: '2026-01-15T00:00:00Z' },
-  { id: 'u2', email: 'bob@msc.co.tz', full_name: 'Bob Kimani', department_id: 'd1', role: 'manager', is_active: true, created_at: '2026-01-10T00:00:00Z' },
-  { id: 'u3', email: 'carol@msc.co.tz', full_name: 'Carol Njeri', department_id: 'd2', role: 'hr', is_active: true, created_at: '2026-01-05T00:00:00Z' },
-  { id: 'u4', email: 'david@msc.co.tz', full_name: 'David Osei', department_id: 'd3', role: 'manager', is_active: true, created_at: '2026-01-08T00:00:00Z' },
-  { id: 'u5', email: 'eve@msc.co.tz', full_name: 'Eve Banda', department_id: null, role: 'gm', is_active: true, created_at: '2026-01-01T00:00:00Z' },
+  { id: 'u1', email: 'alice@naenda.co.tz', full_name: 'Alice Mwangi', department_id: 'd1', role: 'employee', is_active: true, joining_date: '2024-01-15', created_at: '2024-01-15T00:00:00Z' },
+  { id: 'u2', email: 'bob@naenda.co.tz', full_name: 'Bob Kimani', department_id: 'd1', role: 'manager', is_active: true, joining_date: '2023-06-01', created_at: '2023-06-01T00:00:00Z' },
+  { id: 'u3', email: 'carol@naenda.co.tz', full_name: 'Carol Njeri', department_id: 'd2', role: 'hr', is_active: true, joining_date: '2023-03-01', created_at: '2023-03-01T00:00:00Z' },
+  { id: 'u4', email: 'david@naenda.co.tz', full_name: 'David Osei', department_id: 'd3', role: 'manager', is_active: true, joining_date: '2023-08-15', created_at: '2023-08-15T00:00:00Z' },
+  { id: 'u5', email: 'eve@naenda.co.tz', full_name: 'Eve Banda', department_id: null, role: 'gm', is_active: true, joining_date: '2022-01-01', created_at: '2022-01-01T00:00:00Z' },
+  { id: 'u6', email: 'frank@naenda.co.tz', full_name: 'Frank Mutiso', department_id: null, role: 'admin', is_active: true, joining_date: '2022-01-01', created_at: '2022-01-01T00:00:00Z' },
 ]
 
 export const leaveBalances: LeaveBalance[] = users.flatMap(u =>
@@ -62,10 +63,30 @@ export const publicHolidays: PublicHoliday[] = [
 
 export const notifications: Notification[] = []
 
+export const auditLogs: AuditLog[] = []
+
 // ── Helper mutations ─────────────────────────────────────────────────────────
 
 let _seq = 1000
 const nextId = () => `id-${++_seq}`
+
+export function logAdminAction(
+  adminId: string,
+  action: AdminAction,
+  targetUserId: string | null,
+  details: string
+): AuditLog {
+  const entry: AuditLog = {
+    id: nextId(),
+    admin_id: adminId,
+    action,
+    target_user_id: targetUserId,
+    details,
+    created_at: new Date().toISOString(),
+  }
+  auditLogs.unshift(entry) // Newest first
+  return entry
+}
 
 export function createLeaveRequest(
   data: Omit<LeaveRequest, 'id' | 'status' | 'current_stage' | 'created_at' | 'updated_at'>
@@ -105,7 +126,14 @@ export function approveLeaveRequest(
   // Deduct balance on final approval
   if (req.status === 'approved') {
     const bal = leaveBalances.find(b => b.user_id === req.user_id && b.leave_type === req.leave_type)
-    if (bal) bal.balance = Math.max(0, bal.balance - req.days_requested)
+    if (bal) {
+      // For dynamic types (work_cycle, annual): balance tracks days TAKEN, so increment it
+      if (req.leave_type === 'work_cycle' || req.leave_type === 'annual') {
+        bal.balance += req.days_requested
+      } else {
+        bal.balance = Math.max(0, bal.balance - req.days_requested)
+      }
+    }
   }
 
   return req
