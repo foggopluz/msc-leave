@@ -1,13 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Nav from '@/components/Nav'
 import PageWrapper from '@/components/PageWrapper'
 import { Department, PublicHoliday, ROLE_LABELS, User } from '@/lib/types'
 import { useDemoUser } from '@/lib/demo-user'
+import { canAccessSettings } from '@/lib/permissions'
 
 export default function SettingsPage() {
-  useDemoUser() // ensure context is active
+  const { user: DEMO_USER } = useDemoUser()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!canAccessSettings(DEMO_USER.role as never)) router.replace('/dashboard')
+  }, [DEMO_USER.role])
   const [departments, setDepartments] = useState<Department[]>([])
   const [employees, setEmployees] = useState<User[]>([])
   const [holidays, setHolidays] = useState<PublicHoliday[]>([])
@@ -92,7 +99,7 @@ export default function SettingsPage() {
   return (
     <>
       <Nav />
-      <PageWrapper title="Settings" subtitle="System configuration (General Manager only)">
+      <PageWrapper title="Settings" subtitle="System configuration (Admin only)">
         {/* Tabs */}
         <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
           {tabs.map(t => (

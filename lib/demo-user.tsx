@@ -49,18 +49,10 @@ export function DemoUserProvider({ children }: { children: React.ReactNode }) {
       if (matched) setUser(matched)
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.email) {
-        resolve(session.user.email)
-      } else {
-        router.replace('/login')
-      }
-    })
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user?.email) {
         resolve(session.user.email)
-      } else if (event === 'SIGNED_OUT') {
+      } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
         router.replace('/login')
       }
     })

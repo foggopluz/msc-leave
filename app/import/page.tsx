@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Nav from '@/components/Nav'
 import PageWrapper from '@/components/PageWrapper'
 import { useDemoUser } from '@/lib/demo-user'
+import { canImportEmployees } from '@/lib/permissions'
 
 const TEMPLATE_HEADERS = [
   'Name', 'Department', 'Role',
@@ -13,7 +15,13 @@ const TEMPLATE_HEADERS = [
 ]
 
 export default function ImportPage() {
-  useDemoUser() // ensure context is active
+  const { user: DEMO_USER } = useDemoUser()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!canImportEmployees(DEMO_USER.role as never)) router.replace('/dashboard')
+  }, [DEMO_USER.role])
+
   const [csv, setCsv] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{ created: number; errors: string[] } | null>(null)

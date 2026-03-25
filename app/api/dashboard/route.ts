@@ -27,6 +27,18 @@ export async function GET(req: NextRequest) {
   const { data: visibleUsers } = await usersQuery
   const visibleUserIds = (visibleUsers ?? []).map(u => u.id)
 
+  if (visibleUserIds.length === 0) {
+    const stats: DashboardStats = {
+      total_employees: 0,
+      on_duty_today: 0,
+      on_leave_today: 0,
+      pending_approvals: 0,
+      departments: [],
+      upcoming_leaves: [],
+    }
+    return NextResponse.json(stats)
+  }
+
   // On leave today
   const { data: onLeaveToday } = await db.from('leave_requests')
     .select('user_id')

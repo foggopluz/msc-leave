@@ -1,14 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Nav from '@/components/Nav'
 import PageWrapper from '@/components/PageWrapper'
 import { User, Department, ROLE_LABELS } from '@/lib/types'
 import { useDemoUser } from '@/lib/demo-user'
+import { canManageEmployees } from '@/lib/permissions'
 import Link from 'next/link'
 
 export default function EmployeesPage() {
   const { user: DEMO_USER } = useDemoUser()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!canManageEmployees(DEMO_USER.role as never)) router.replace('/dashboard')
+  }, [DEMO_USER.role])
   const [employees, setEmployees] = useState<User[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
