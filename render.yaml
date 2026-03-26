@@ -5,8 +5,10 @@ services:
     region: oregon
     plan: free
     buildCommand: npm install && npm run build
-    startCommand: node_modules/.bin/next start -H 0.0.0.0
+    startCommand: npm run start
     envVars:
+      - key: NODE_VERSION
+        value: "20.18.0"
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_SUPABASE_URL
